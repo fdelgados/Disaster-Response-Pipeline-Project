@@ -1,16 +1,49 @@
 import sys
+import numpy as np
+import pandas as pd
+from sqlalchemy import create_engine
 
 
 def load_data(messages_filepath, categories_filepath):
-    pass
+    messages = pd.read_csv(messages_filepath)
+    categories = pd.read_csv(categories_filepath)
+
+    return messages.merge(categories, on='id')
 
 
 def clean_data(df):
-    pass
+    categories = df['categories'].str.split(';', expand=True)
+
+    row = categories.iloc[0]
+
+    # use this row to extract a list of new column names for categories.
+    # one way is to apply a lambda function that takes everything 
+    # up to the second to last character of each string with slicing
+    categories.columns = row.apply(lambda x: x[:-2]).tolist()
+
+    for column in categories:
+        # set each value to be the last character of the string
+        categories[column] = categories[column].astype(str).str[-1]
+    
+    # convert column from string to numeric
+    categories[column] = pd.to_numeric(categories[column])
+
+    # drop the original categories column from `df`
+    df.drop('categories', axis=1, inplace=True)
+
+    df = pd.concat([df, categories], axis=1)
+
+    duplicates = df.duplicated().sum()
+    if duplicates > 0:
+        df = df.drop_duplicates()
+
+    return df
 
 
 def save_data(df, database_filename):
-    pass  
+    engine = create_engine('sqlite:///{}'.format(database_filename))
+
+    df.to_sql('messages', con=engine, index=False)
 
 
 def main():
