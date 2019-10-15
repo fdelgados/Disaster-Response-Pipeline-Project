@@ -3,3 +3,4 @@ __pycache__/
 notebooks/
 data/*.csv
 data/*.db
+models/*.pkl
