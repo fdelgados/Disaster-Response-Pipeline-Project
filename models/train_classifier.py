@@ -1,24 +1,76 @@
 import sys
+import numpy as np
+import pandas as pd
+import pickle
+from sqlalchemy import create_engine
+import nltk
+nltk.download('punkt')
+nltk.download('wordnet')
+
+from warnings import simplefilter
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
+from sklearn.multioutput import MultiOutputClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import SGDClassifier
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import classification_report, accuracy_score
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.model_selection import GridSearchCV
+from sklearn.externals import joblib
 
 
 def load_data(database_filepath):
-    pass
+    engine = create_engine('sqlite:///{}'.format(database_filepath))
+    
+    df = pd.read_sql_table('messages', con=engine)
+    
+
+    X = df['message'] 
+    Y = df.iloc[:, 4:]
+
+    return X, Y, Y.columns
 
 
 def tokenize(text):
-    pass
+    tokens = word_tokenize(text)
+    lemmatizer = WordNetLemmatizer()
+
+    clean_tokens = []
+    for token in tokens:
+        clean_token = lemmatizer.lemmatize(token).lower().strip()
+        clean_tokens.append(clean_token)
+
+    return clean_tokens
 
 
 def build_model():
-    pass
+    # ignore all future warnings
+    simplefilter(action='ignore', category=FutureWarning)
+
+    return Pipeline([
+        ('vect', CountVectorizer(tokenizer=tokenize, ngram_range=(2, 3))),
+        ('tfidf', TfidfTransformer()),
+        ('clf', MultiOutputClassifier(RandomForestClassifier()))
+    ])
 
 
 def evaluate_model(model, X_test, Y_test, category_names):
-    pass
+    y_pred = model.predict(X_test)
+
+    df_pred = pd.DataFrame(y_pred, columns=category_names)
+
+    for category in category_names:
+        print('Category {}:'.format(category))
+        print(classification_report(Y_test[category], df_pred[category]))
+        print('=' * 55)
 
 
 def save_model(model, model_filepath):
-    pass
+    joblib.dump(model, model_filepath, compress=3)
 
 
 def main():
