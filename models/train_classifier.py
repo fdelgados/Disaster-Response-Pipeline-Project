@@ -15,8 +15,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import SGDClassifier
-from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.model_selection import GridSearchCV
@@ -51,11 +49,21 @@ def build_model():
     # ignore all future warnings
     simplefilter(action='ignore', category=FutureWarning)
 
-    return Pipeline([
-        ('vect', CountVectorizer(tokenizer=tokenize, ngram_range=(2, 3))),
+    pipeline = Pipeline([
+        ('vect', CountVectorizer(tokenizer=tokenize)),
         ('tfidf', TfidfTransformer()),
         ('clf', MultiOutputClassifier(RandomForestClassifier()))
     ])
+
+    parameters = {
+        'vect__ngram_range': [(1, 1), (1, 2)],
+        'clf__estimator__n_estimators': [50, 100],
+        'clf__estimator__min_samples_split': [2, 3, 4]
+    }
+    
+    cv = GridSearchCV(pipeline, param_grid=parameters, n_jobs=-1, verbose=2)
+
+    return cv
 
 
 def evaluate_model(model, X_test, Y_test, category_names):
