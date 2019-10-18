@@ -1,3 +1,4 @@
+import re
 import sys
 import numpy as np
 import pandas as pd
@@ -10,6 +11,14 @@ def load_data(messages_filepath, categories_filepath):
 
     return messages.merge(categories, on='id')
 
+def remove_url(text, replace=''):
+    url_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+
+    detected_urls = re.findall(url_regex, text)
+    for url in detected_urls:
+        text = text.replace(url, replace)
+    
+    return text
 
 def clean_data(df):
     categories = df['categories'].str.split(';', expand=True)
@@ -37,6 +46,13 @@ def clean_data(df):
     duplicates = df.duplicated().sum()
     if duplicates > 0:
         df = df.drop_duplicates()
+
+    df['message'] = df['message'].apply(lambda text: remove_url(text))
+
+    for column in categories:
+        # drop columns with one unique value
+        if df[column].nunique() == 1:
+            df.drop(column, axis=1, inplace=True)
 
     return df
 
