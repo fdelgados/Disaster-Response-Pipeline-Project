@@ -4,30 +4,31 @@ import pandas as pd
 import pickle
 from sqlalchemy import create_engine
 import nltk
-nltk.download('punkt')
 nltk.download('wordnet')
+nltk.download('stopwords')
 
 from warnings import simplefilter
 from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.multioutput import MultiOutputClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, accuracy_score
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import classification_report
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.model_selection import GridSearchCV
 from sklearn.externals import joblib
 
+stop_words = set(stopwords.words('english'))
 
 def load_data(database_filepath):
     engine = create_engine('sqlite:///{}'.format(database_filepath))
     
     df = pd.read_sql_table('messages', con=engine)
     
-
-    X = df['message'] 
+    X = df['message']
     Y = df.iloc[:, 4:]
 
     return X, Y, Y.columns
@@ -39,7 +40,10 @@ def tokenize(text):
 
     clean_tokens = []
     for token in tokens:
-        clean_token = lemmatizer.lemmatize(token).lower().strip()
+        if token.lower() in stop_words:
+            continue
+
+        clean_token = lemmatizer.lemmatize(token.strip()).lower()
         clean_tokens.append(clean_token)
 
     return clean_tokens
@@ -52,13 +56,13 @@ def build_model():
     pipeline = Pipeline([
         ('vect', CountVectorizer(tokenizer=tokenize)),
         ('tfidf', TfidfTransformer()),
-        ('clf', MultiOutputClassifier(RandomForestClassifier()))
+        ('clf', MultiOutputClassifier(MultinomialNB()))
     ])
 
     parameters = {
         'vect__ngram_range': [(1, 1), (1, 2)],
-        'clf__estimator__n_estimators': [50, 100],
-        'clf__estimator__min_samples_split': [2, 3, 4]
+        'tfidf__use_idf': (True, False),
+        'clf__estimator__alpha': (1e-2, 1e-3)
     }
     
     cv = GridSearchCV(pipeline, param_grid=parameters, n_jobs=-1, verbose=2)
