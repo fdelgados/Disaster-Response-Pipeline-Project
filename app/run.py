@@ -2,8 +2,13 @@ import json
 import plotly
 import pandas as pd
 
-from nltk.stem import WordNetLemmatizer
+import nltk
+nltk.download('wordnet')
+nltk.download('stopwords')
+
 from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
 
 from flask import Flask
 from flask import render_template, request, jsonify
@@ -14,23 +19,28 @@ from sqlalchemy import create_engine
 
 app = Flask(__name__)
 
+stop_words = set(stopwords.words('english'))
+
 def tokenize(text):
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
 
     clean_tokens = []
-    for tok in tokens:
-        clean_tok = lemmatizer.lemmatize(tok).lower().strip()
-        clean_tokens.append(clean_tok)
+    for token in tokens:
+        if token.lower() in stop_words:
+            continue
+
+        clean_token = lemmatizer.lemmatize(token.strip()).lower()
+        clean_tokens.append(clean_token)
 
     return clean_tokens
 
 # load data
-engine = create_engine('sqlite:///../data/YourDatabaseName.db')
-df = pd.read_sql_table('YourTableName', engine)
+engine = create_engine('sqlite:///../data/DisasterResponse.db')
+df = pd.read_sql_table('messages', engine)
 
 # load model
-model = joblib.load("../models/your_model_name.pkl")
+model = joblib.load("../models/classifier.pkl")
 
 
 # index webpage displays cool visuals and receives user input text for model
@@ -93,7 +103,7 @@ def go():
 
 
 def main():
-    app.run(host='0.0.0.0', port=3001, debug=True)
+    app.run(host='localhost', port=3001, debug=True)
 
 
 if __name__ == '__main__':
