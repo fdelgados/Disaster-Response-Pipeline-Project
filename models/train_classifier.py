@@ -31,7 +31,7 @@ def load_data(database_filepath):
         database_filepath (str): Path to the database file
 
     Returns:
-        tuple: A tuple containing messages as a first element, categories as a second element
+        (pd.Series, pd.DataFrame, list): A tuple containing messages as a first element, categories as a second element
             and a list of category names as the third element
     """
     engine = create_engine('sqlite:///{}'.format(database_filepath))
