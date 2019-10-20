@@ -3,6 +3,7 @@ import plotly
 import pandas as pd
 
 import nltk
+
 nltk.download('wordnet')
 nltk.download('stopwords')
 
@@ -16,45 +17,43 @@ from plotly.graph_objs import Bar
 from sklearn.externals import joblib
 from sqlalchemy import create_engine
 
-
 app = Flask(__name__)
 
 stop_words = set(stopwords.words('english'))
 
+
 def tokenize(text):
+    """Convert a text to a token list in lowercase and lemmatized. It also eliminates stop words.
+
+    Args:
+        text (str): Text to be converted
+
+    Returns:
+        list: A list of clean tokens
+    """
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
 
-    clean_tokens = []
-    for token in tokens:
-        if token.lower() in stop_words:
-            continue
-
-        clean_token = lemmatizer.lemmatize(token.strip()).lower()
-        clean_tokens.append(clean_token)
-
-    return clean_tokens
-
-# load data
-engine = create_engine('sqlite:///../data/DisasterResponse.db')
-df = pd.read_sql_table('messages', engine)
-
-# load model
-model = joblib.load("../models/classifier.pkl")
+    return [lemmatizer.lemmatize(token.strip()).lower() for token in tokens
+            if token.lower() not in stop_words]
 
 
-# index webpage displays cool visuals and receives user input text for model
-@app.route('/')
-@app.route('/index')
-def index():
-    
+def create_graphs(dataframe):
+    """Extracts and format data to create visualizations
+
+    Args:
+        dataframe (pd.DataFrame): Visualizations data source
+
+    Returns:
+        (list, str)
+    """
     # extract data needed for visuals
-    # TODO: Below is an example - modify to extract data for your own visuals
-    genre_counts = df.groupby('genre').count()['message']
+    genre_counts = dataframe.groupby('genre').count()['message']
     genre_names = list(genre_counts.index)
-    
-    # create visuals
-    # TODO: Below is an example - modify to create your own visuals
+
+    category_counts = dataframe.iloc[:, 4:].sum()
+    category_names = [category.replace('_', ' ').title() for category in dataframe.iloc[:, 4:].columns.tolist()]
+
     graphs = [
         {
             'data': [
@@ -73,22 +72,59 @@ def index():
                     'title': "Genre"
                 }
             }
+        },
+        {
+            'data': [
+                Bar(
+                    x=category_counts,
+                    y=category_names,
+                    orientation='h'
+                )
+            ],
+            'layout': {
+                'title': 'Distribution of Message Categories',
+                'xaxis': {
+                    'title': 'Count'
+                },
+                'yaxis': {
+                    'title': 'Category',
+                    'automargin': True
+                },
+            }
         }
     ]
-    
+    # create visuals
+
     # encode plotly graphs in JSON
     ids = ["graph-{}".format(i) for i, _ in enumerate(graphs)]
-    graphJSON = json.dumps(graphs, cls=plotly.utils.PlotlyJSONEncoder)
-    
+    graph_json = json.dumps(graphs, cls=plotly.utils.PlotlyJSONEncoder)
+
+    return ids, graph_json
+
+
+# load data
+engine = create_engine('sqlite:///../data/DisasterResponse.db')
+df = pd.read_sql_table('messages', engine)
+
+# load model
+model = joblib.load("../models/classifier.pkl")
+
+
+# index webpage displays cool visuals and receives user input text for model
+@app.route('/')
+@app.route('/index')
+def index():
+    ids, graph_json = create_graphs(df)
+
     # render web page with plotly graphs
-    return render_template('master.html', ids=ids, graphJSON=graphJSON)
+    return render_template('master.html', ids=ids, graph_json=graph_json)
 
 
 # web page that handles user query and displays model results
 @app.route('/go')
 def go():
     # save user input in query
-    query = request.args.get('query', '') 
+    query = request.args.get('query', '')
 
     # use model to predict classification for query
     classification_labels = model.predict([query])[0]
